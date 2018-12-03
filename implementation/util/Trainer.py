@@ -11,7 +11,7 @@ from torch.nn import CrossEntropyLoss
 class Trainer:
     
     def __init__(self, model, dataset, batch_size, epochs, optim=Adam, optim_args={}, loss_func=CrossEntropyLoss(),
-                 log_nth=10, shuffle=True, validation_size=0.2, num_workers=4):
+                 log_nth=10, shuffle=True, validation_size=0.2, num_workers=4, collapse_batch=False):
         self.model = model
         self.dataset = dataset
         self.epochs = epochs
@@ -21,6 +21,7 @@ class Trainer:
         self.loss_func = loss_func
         self.log_nth = log_nth
         self.num_workers = num_workers
+        self.collapse_batch = collapse_batch
         
         # setup data loaders
         idx = list(range(len(self.dataset)))
@@ -63,6 +64,9 @@ class Trainer:
                     x, y = x.cuda(), y.cuda()
 
                 out = self.model(x)
+                if self.collapse_batch:
+                    y = y.view((-1,))
+
                 optim.zero_grad()
                 loss = self.loss_func(out, y)
                 loss.backward()
@@ -80,6 +84,8 @@ class Trainer:
             loss_sum, acc_sum = 0, 0
             for x, y in self.val_loader:
                 out = self.model(x)
+                if self.collapse_batch:
+                    y = y.view((-1,))
                 loss_sum += self.loss_func(out, y)
                 acc_sum += (out.max(1)[1] == y).sum().data.numpy() / y.shape[0]
 
