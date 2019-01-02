@@ -4,7 +4,7 @@ import pandas as pd
 import numpy as np
 from torch.utils.data import Dataset
 
-
+# list of all KPI IDs contained in the data set
 kpi_ids = [
     '02e99bd4f6cfb33f', '9bd90500bfd11edb', 'da403e4e3f87c9e0',
     'a5bf5d65261d859a', '18fbb1d5a5dc099d', '09513ae3e75778a3',
@@ -17,27 +17,57 @@ kpi_ids = [
     '9ee5879409dccef9', '88cf3a776ba00e7c'
 ]
 
-def vec_kpi(kpi_id):
+def vectorize_kpi(kpi_id):
     vector = np.zeros((len(kpi_ids)))
     vector[kpi_ids.index(kpi_id)] = 1
     return vector
 
-
-class KPIDataset(Dataset):
+class KPIStatsDataset(Dataset):
     
-    def __init__(self, path, seq_length=31, step_width=1, transform=None, evaluate=False):
+    def __init__(
+        self, 
+        path, 
+        series_stat_path, 
+        diff_stat_path,
+        seq_length=31, 
+        step_width=1, 
+        transform=None, 
+        evaluate=False
+    ):
         assert seq_length % 2 == 1 and seq_length >= 3, "seq_length has to be odd and >= 3."
 
         self.df = pd.read_csv(path)
+        kpi_stats_series_nn = pd.read_csv(series_stat_path)
+        kpi_diff_stats_series_nn = pd.read_csv(diff_stat_path)
 
+        # normalize both data sets
+        ids_series = kpi_diff_stats_series_nn['id']
+        del kpi_diff_stats_series_nn['id']
+        ids_diff = kpi_stats_series_nn['id']
+        del kpi_stats_series_nn['id']
+    
+        kpi_stats_series = (kpi_stats_series_nn - kpi_stats_series_nn.mean()) / (kpi_stats_series_nn.max() - kpi_stats_series_nn.min()+000000.1)
+        kpi_stats_series = pd.concat([ids_series,kpi_stats_series], axis=1)
+        
+        kpi_diff_stats_series = (kpi_diff_stats_series_nn - kpi_diff_stats_series_nn.mean()) / (kpi_diff_stats_series_nn.max() - kpi_diff_stats_series_nn.min()+000000.1)
+        kpi_diff_stats_series = pd.concat([ids_diff,kpi_diff_stats_series], axis=1)
+        
         # extract length and mean of KPI IDs
         ids = self.df['KPI ID'].unique()
         self.kpi_lengths = []
         self.kpi_vectors= []
+        self.kpi_stats = []
+        self.kpi_diff_stats = []
 
         for _id in ids:
             self.kpi_lengths.append(len(self.df[self.df['KPI ID'] == _id]))
-            self.kpi_vectors.append(vec_kpi(_id))
+            self.kpi_vectors.append(vectorize_kpi(_id))
+            values = kpi_stats_series[kpi_stats_series['id'].isin([_id])]
+            del values['id']
+            self.kpi_stats.append(values.values[0])
+            values = kpi_diff_stats_series[kpi_diff_stats_series['id'].isin([_id])]
+            del values['id']
+            self.kpi_diff_stats.append(values.values[0])
 
         self.length = sum(self.kpi_lengths)
         self.seq_length = seq_length
@@ -64,33 +94,30 @@ class KPIDataset(Dataset):
         end_index = index_df + self.seq_length // 2 + 1
         kpi_start = index_df - i
         kpi_end = index_df + (self.kpi_lengths[kpi_id] - i)
-        
-        pad_left_value = np.array([])
-        pad_right_value = np.array([])
-        pad_left_diff = np.array([])
-        pad_right_diff = np.array([])
+        pad_left = np.array([])
+        pad_right = np.array([])
 
         if start_index < kpi_start:
             # pad left
-            pad_left_value = np.array([self.df.iloc[kpi_start]['value']] * (kpi_start - start_index))
-            pad_left_diff = np.array([self.df.iloc[kpi_start]['value_diff']] * (kpi_start - start_index))
+            pad_left = np.array([0] * (kpi_start - start_index))
             start_index = kpi_start
 
         if end_index > kpi_end:
             # pad right
-            pad_right_value = np.array([self.df.iloc[kpi_end - 1]['value']] * (end_index - kpi_end))
-            pad_right_diff = np.array([self.df.iloc[kpi_end - 1]['value_diff']] * (end_index - kpi_end))
+            pad_right = np.array([0] * (end_index - kpi_end))
             end_index = kpi_end
 
         rows = self.df.iloc[start_index : end_index]
         x = np.concatenate([
+            self.kpi_stats[kpi_id],
+            self.kpi_diff_stats[kpi_id],
             self.kpi_vectors[kpi_id],
-            pad_left_value, 
+            pad_left, 
             rows['value'].values, 
-            pad_right_value,
-            pad_left_diff,
+            pad_right,
+            pad_left,
             rows['value_diff'].values,
-            pad_right_diff
+            pad_right
         ]).astype('float32')
 
         if self.transform:
@@ -100,8 +127,5 @@ class KPIDataset(Dataset):
             return x
         
         y = self.df.iloc[[index_df]]['label'].values[0].astype('int64')
-        #y = np.int64(0)
-        #if self.df.iloc[[index_df]]['in_delay'].all():
-            #y = np.int64(1)
             
         return x, y
