@@ -1,2 +1,2 @@
-from trainer import *
-from functions import *
+from .trainer import *
+from .functions import *

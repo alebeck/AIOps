@@ -16,10 +16,11 @@ kpi_ids = [
 	'9ee5879409dccef9', '88cf3a776ba00e7c'
 ]
 
+
 def vec_kpi(kpi_id):
-	vector = np.zeros((len(kpi_ids)))
-	vector[kpi_ids.index(kpi_id)] = 1
-	return vector
+	vec = np.zeros((len(kpi_ids)))
+	vec[kpi_ids.index(kpi_id)] = 1
+	return vec
 
 
 class KPIDataset(Dataset):

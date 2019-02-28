@@ -10,10 +10,10 @@ from implementation.util import print_progress_bar
 
 
 dataset = KPIDataset(
-	'../data/test_preprocessed.csv', 
-	seq_length=1001,
-	step_width=1,
-	evaluate=True
+    '../data/test_preprocessed.csv',
+    seq_length=1001,
+    step_width=1,
+    evaluate=True
 )
 
 model = ConvModel(1001)
@@ -26,12 +26,12 @@ iter_per_epoch = len(loader)
 result = []
 
 with torch.no_grad():
-	for i, x in enumerate(loader):
-		x = x.cuda()
-		out = model(x).data.cpu().numpy()
-		result.extend(list(out.argmax(1)))
-		print_progress_bar(i, iter_per_epoch)
-		
+    for i, x in enumerate(loader):
+        x = x.cuda()
+        out = model(x).data.cpu().numpy()
+        result.extend(list(out.argmax(1)))
+        print_progress_bar(i, iter_per_epoch)
+
 df = pd.read_csv('../data/test_preprocessed.csv')
 df = df[['KPI ID', 'timestamp', 'value']]
 
