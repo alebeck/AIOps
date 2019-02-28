@@ -3,10 +3,9 @@ import pandas as pd
 import torch
 from torch.utils.data import DataLoader
 
-sys.path.append('./implementation/')
-from implementation.datasets import KPIDataset
-from implementation.models import ConvModel
-from implementation.util import print_progress_bar
+from datasets import KPIDataset
+from models import ConvModel
+from util import print_progress_bar
 
 
 dataset = KPIDataset(

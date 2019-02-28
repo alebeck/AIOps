@@ -1,10 +1,9 @@
 import sys
 from torch.nn import CrossEntropyLoss
 
-sys.path.append('./implementation/')
-from implementation.util.Trainer import Trainer
-from implementation.util.KPIDataset import KPIDataset
-from implementation.models.ConvModel import ConvModel
+from util import Trainer
+from datasets import KPIDataset
+from models import ConvModel
 
 
 dataset = KPIDataset(
